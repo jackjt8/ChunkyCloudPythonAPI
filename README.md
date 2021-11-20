@@ -8,9 +8,19 @@ Below is an example usage.
 
 	import CCpythonAPI
 	...
+	api_key = ""
 	cc = ChunkyCloud(api_key)
-	job_id = cc.sumbit("scene.octree2", "scene.emittergrid", "scene.json", 64, "frame.png")
-	cc.wait_and_download_all(60)
+
+	scenedir = r"C:\Users\jackj\.chunky\scenes\default_2021-10-02_17-54-30"
+	octree = os.path.join(scenedir, "default_2021-10-02_17-54-30.octree2")
+	emittergrid = os.path.join(scenedir, "default_2021-10-02_17-54-30.emittergrid")
+	json = os.path.join(scenedir, "default_2021-10-02_17-54-30.json")
+
+	job_id = cc.submit(octree, emittergrid, json, 64, "frame.png")
+	print(job_id)
+	cc.wait_and_download_all(15)
+	if os.path.isfile("frame.png"):
+		print("Download completed")
 	
 ## Core and QoL methods
 

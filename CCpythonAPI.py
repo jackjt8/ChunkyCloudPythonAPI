@@ -1,5 +1,7 @@
 import requests
 import os
+import shutil
+import time
 #import json
 
 class ChunkyCloud:
@@ -22,9 +24,9 @@ class ChunkyCloud:
              'chunkyVersion': '2.x',
              'transient': False,
              'targetSpp': samples}
-    files=[('scene', (os.path.basename(scene_file), open(scene_file, 'rb')), 'application/json'),
-           ('octre', (os.path.basename(octree), open(octree, 'rb')), 'application/octet-stream'),
-           ('emittergrid', (os.path.basename(emitter_grid), open(emitter_grid, 'rb')), 'application/octet-stream')
+    files=[('scene', (os.path.basename(scene_file), open(scene_file, 'rb'), 'application/json')),
+           ('octree', (os.path.basename(octree), open(octree, 'rb'), 'application/octet-stream')),
+           ('emittergrid', (os.path.basename(emitter_grid), open(emitter_grid, 'rb'), 'application/octet-stream'))
            ]
     headers = {}
     
@@ -47,11 +49,10 @@ class ChunkyCloud:
              'chunkyVersion': '2.x',
              'transient': True,
              'targetSpp': samples}
-    files=[('scene', (os.path.basename(scene_file), open(scene_file, 'rb')), 'application/json')]
+    files=[('scene', (os.path.basename(scene_file), open(scene_file, 'rb'), 'application/json'))]
     headers = {}
         
-    response = requests.request("POST", url, headers=headers, data=payload, files=files)
-        
+    response = requests.request("POST", url, headers=headers, data=payload, files=files)   
     new_id = response.json()['_id']
     self._id_queue[new_id] = output_path
     return new_id
@@ -102,12 +103,13 @@ class ChunkyCloud:
       :param job_id:   Existing Job ID to use download image for
       :param output_path:   path to eventually save the image to
     """
-    url = 'https://api.chunkycloud.lemaik.de/jobs/' + job_id + 'latest.png'
-    with requests.get(url, stream=True) as r:
-        with open(output_file, 'wb') as f:
-          shutil.copyfileobj(r.raw, f)
-    return output_file # maybe need to return success/fail?
-
+    url = 'https://api.chunkycloud.lemaik.de/jobs/' + job_id + '/latest.png'   
+    r = requests.get(url, stream=True)
+    print(r.status_code)
+    if r.status_code == 200:
+      with open(output_file, 'wb') as fd:
+          for chunk in r.iter_content(chunk_size=128):
+              fd.write(chunk)     
 
   def wait_and_download_all(self, poll_time: int):
     """ [QoL] Download all images for submitted jobs if complete.
@@ -122,3 +124,17 @@ class ChunkyCloud:
           self.download_img(job_id, output_path)
 
 
+if __name__ == "__main__":
+  api_key = ""
+  cc = ChunkyCloud(api_key)
+  
+  scenedir = r"C:\Users\jackj\.chunky\scenes\default_2021-10-02_17-54-30"
+  octree = os.path.join(scenedir, "default_2021-10-02_17-54-30.octree2")
+  emittergrid = os.path.join(scenedir, "default_2021-10-02_17-54-30.emittergrid")
+  json = os.path.join(scenedir, "default_2021-10-02_17-54-30.json")
+  
+  job_id = cc.submit(octree, emittergrid, json, 64, "frame.png")
+  print(job_id)
+  cc.wait_and_download_all(15)
+  if os.path.isfile("frame.png"):
+    print("Download completed")
